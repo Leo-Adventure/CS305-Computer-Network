@@ -2,6 +2,8 @@ import threading
 from dns import resolver, rdatatype
 import socket
 
+import time
+
 from dns.resolver import NoNameservers
 from dnslib import DNSRecord, QTYPE, RD, SOA, DNSHeader, RR, A, CNAME
 """
@@ -16,20 +18,74 @@ don't forget thread safe in your cache if needed cause many thread will access i
 """
 
 
+cname = []
+ttl_list = []
+
 
 class CacheManager:
     # NOTE: class that manage cache.
     def __init__(self):
-        # TODO
+
         self.content = []
+        self.dict = dict()
+        self.domain_ttl_dict = dict() # 存储TTL列表便于之后构造新的报文
+        self.ttl_dict = dict() # 存储pair<put_in_time, ttl>
 
-    def readCache(self, domain_name):
-        # TODO: how you read from cache
-        raise NotImplementedError
+    def readCache(self, domain_name, income_record):
 
-    def writeCache(self, domain_name, response):
-        # TODO: how you write to cache
-        raise NotImplementedError
+
+        if domain_name in self.content:
+
+            if(time.time() - self.ttl_dict[domain_name][0] > self.ttl_dict[domain_name][1]):
+                del self.dict[domain_name]
+                del self.ttl_dict[domain_name]
+                del self.domain_ttl_dict[domain_name]
+                return None
+            else:
+                # 根据存储的信息以及传进来的income_record 构造报文
+                self_ttl_list = self.domain_ttl_dict[domain_name]
+                self_cname = self.dict[domain_name]
+                # print("self_cname is ")
+                # print(self_cname)
+                target_ip = self_cname[len(self_cname) - 1]
+                r_data = A(target_ip)
+                header = DNSHeader(id=income_record.header.id, bitmap=income_record.header.bitmap, qr=1)
+                domain = income_record.q.qname
+
+                query_type_int = QTYPE.reverse.get('A') or income_record.q.qtype
+
+                record = DNSRecord(header, q=income_record.q, a=RR(domain, query_type_int, rdata=r_data, ttl=0))
+                a = record.reply()
+                # print("Len of self_cname is")
+                # print(len(self_cname))
+                # print("Len of self_ttl_list is")
+                # print(len(self_ttl_list))
+                for i in range(len(self_cname) - 1):
+                    if i != len(self_cname) - 2:
+                        a.add_answer(RR(self_cname[i], QTYPE.CNAME, rdata=CNAME(self_cname[i + 1]), ttl=self_ttl_list[i]))
+                    else:
+                        a.add_answer(RR(self_cname[i], QTYPE.A, rdata=A(self_cname[i + 1]), ttl=self_ttl_list[i]))
+                # print("In cache reply, the size of cname and ttl_list is ")
+                # print(len(self_cname))
+                # print(len(self_ttl_list))
+                record = DNSRecord.parse(a.pack())
+
+                return record
+
+        return None
+
+    def writeCache(self, domain_name):
+
+        self.content.append(domain_name)
+        self.dict[domain_name] = cname[:]
+        # print("In writecache, the cname_list is ")
+        # print(cname)
+        self.domain_ttl_dict[domain_name] = ttl_list[:]
+
+        min_ttl = min(ttl_list)
+        self.ttl_dict[domain_name] = [time.time(), min_ttl]
+
+
 
 
 class ReplyGenerator:
@@ -44,29 +100,65 @@ class ReplyGenerator:
         header = DNSHeader(id=income_record.header.id, bitmap=income_record.header.bitmap, qr=1)
         header.set_rcode(0)  # 3 DNS_R_NXDOMAIN, 2 DNS_R_SERVFAIL, 0 DNS_R_NOERROR
         record = DNSRecord(header, q=income_record.q)
+        # print("In no respond reply, the size of cname and ttl_list is ")
+        # print(len(cname))
+        # print(len(ttl_list))
+
         return record
 
     # NOTE: You should implement your reply here
     @staticmethod
-    def myReply(income_record):
-        # TODO: build your reply here
-        raise NotImplementedError
+    def myReply(income_record, ip, ttl=0):
+
+        r_data = A(ip)
+        header = DNSHeader(id=income_record.header.id, bitmap=income_record.header.bitmap, qr=1)
+        domain = income_record.q.qname
+
+        query_type_int = QTYPE.reverse.get('A') or income_record.q.qtype
+
+        record = DNSRecord(header, q=income_record.q, a=RR(domain, query_type_int, rdata=r_data, ttl=ttl))
+        a = record.reply()
+        # print("Len of cname is")
+        # print(len(cname))
+        # print("Len of ttl_list is")
+        # print(len(ttl_list))
+
+        # print("Their content is")
+        # print(cname)
+        # print(ttl_list)
+        for i in range(len(cname) - 1):
+            if i != len(cname) - 2:
+                a.add_answer(RR(cname[i], QTYPE.CNAME, rdata=CNAME(cname[i + 1]), ttl=ttl_list[i]))
+            else:
+                a.add_answer(RR(cname[i], QTYPE.A, rdata=A(cname[i + 1]), ttl=ttl_list[i]))
+        # print("In normal reply, the size of cname and ttl_list is ")
+        # print(len(cname))
+        # print(len(ttl_list))
+        record = DNSRecord.parse(a.pack())
+
         return record
+
+
 
     # NOTE: This is an example for the reply message with just one rr record of a type.
     @staticmethod
-    def replyForA(income_record, ip, ttl=None):
+    def replyForA(income_record, ip, ttl=0):
         """
         :param income_record: the income dns record from dig
         :param ip: the founded domain ip
         :param ttl: time to live
         :return: the reply record
         """
+
         r_data = A(ip)
         header = DNSHeader(id=income_record.header.id, bitmap=income_record.header.bitmap, qr=1)
         domain = income_record.q.qname
+
         query_type_int = QTYPE.reverse.get('A') or income_record.q.qtype
+
         record = DNSRecord(header, q=income_record.q, a=RR(domain, query_type_int, rdata=r_data, ttl=ttl))
+
+
         return record
 
 
@@ -90,14 +182,13 @@ class DNSServer:
         while True:
             message, address = self.receive()
             response = self.dns_handler.handle(message)
-
-
+            # print(address)
             self.reply(address,response)
 
     def receive(self):
         return self.socket.recvfrom(8192)
 
-    def reply(self, address,response):
+    def reply(self, address, response):
         self.socket.sendto(response.pack(), address)
 
 
@@ -117,33 +208,44 @@ class DNSHandler(threading.Thread):
         self.cache_manager = cache_manager
 
 
-
-
     def handle(self, message):
         """
         :param message: dns message from dig
         """
         try:
             income_record = DNSRecord.parse(message)
+            # print(record)
 
         except:
             return
+
         #TODO: initialize your variable here
-        domain_name = str(income_record.q.qname).strip('.') # 获取域名 —— www.baidu.com
+
+        domain_name = str(income_record.q.qname).strip('.')  # 获取域名 —— www.baidu.com
+        cname.append(domain_name)
 
 
-        # if 存储在本地的cache当中就直接返回
-        # else query ROOT server
-        # query ROOT server with domain_name:
+        if self.cache_manager.readCache(domain_name=domain_name,income_record= income_record) == None:
+            target_ip, target_name = self.query(query_name=domain_name, source_ip=self.source_ip, source_port=source_port)
+            cname.append(target_ip)
 
+            if target_ip == None:
+                response = ReplyGenerator.replyForNotFound(income_record=income_record)
+            else:
+                response = ReplyGenerator.myReply(income_record=income_record, ip=target_ip, ttl=0)
 
-        response = None
+                self.cache_manager.writeCache(domain_name=domain_name)
+                # print("TTL_LIST is ")
+                # print(ttl_list)
 
-        raise NotImplementedError
-        # TODO: you need to implement how your handle a dns query like how to access the cache and choose the
-        #  correct respones
+            cname.clear()
+            ttl_list.clear()
+            return response
+        else:
 
-        return response
+            response = self.cache_manager.readCache(domain_name=domain_name, income_record= income_record)
+            print("read from cache")
+            return response
 
 
         # NOTE: this method is a basic use case of library dnspyhton. and it use it to get one root dns server's name and ip
@@ -169,11 +271,14 @@ class DNSHandler(threading.Thread):
 
         # 向根服务器查询TLD服务器
         dns_resolver.nameservers = [server_ip] # 指定要查询的目标DNS服务器IP地址为根DNS服务器
-        answer = dns_resolver.resolve(qname=query_name, rdtype=rdatatype.A, source=source_ip, # 根据根服务器IP查找 domain_name
+        try:
+            answer = dns_resolver.resolve(qname=query_name, rdtype=rdatatype.A, source=source_ip, # 根据根服务器IP查找 domain_name
                                       raise_on_no_answer=False, source_port=source_port)
+        except:
+            return None, None
         response = answer.response # 获得了根服务器的回复报文
-        print("In query method, the response from root server is ")
-        print(response)
+        # print("In query method, the response from root server is ")
+        # print(response)
 
         # print("The response.additional[0] is")
         # print(response.additional[0])
@@ -195,13 +300,17 @@ class DNSHandler(threading.Thread):
             dns_resolver.nameservers.append(rr[0].to_text())
             # print(rr[0].to_text())
 
-        answer = dns_resolver.resolve(qname=query_name, rdtype=rdatatype.A, source=source_ip,  # 根据根服务器IP查找 domain_name
+        try:
+            answer = dns_resolver.resolve(qname=query_name, rdtype=rdatatype.A, source=source_ip, # 根据根服务器IP查找 domain_name
                                       raise_on_no_answer=False, source_port=source_port)
+        except:
+            return None, None
+
         response = answer.response  # 获得了TLD服务器的回复报文
 
 
-        print("The response message from TLD is ")
-        print(response)
+        # print("The response message from TLD is ")
+        # print(response)
 
         # 通过TLD 的报文获得权威服务器的 IP 和名字
         # authority_ip = response.additional[0][0].to_text()
@@ -214,8 +323,8 @@ class DNSHandler(threading.Thread):
                 dns_resolver.nameservers.append(i.to_text())
 
         # 向权威服务器发送请求
-        print("In line 216, query_name is")
-        print(query_name)
+        # print("In line 216, query_name is")
+        # print(query_name)
 
         return self.dfs(query_name=query_name, source_ip=source_ip, source_port=source_port, dns_resolver=dns_resolver)
 
@@ -227,39 +336,42 @@ class DNSHandler(threading.Thread):
         # raise NotImplementedError
 
     def dfs(self, source_ip, source_port, query_name, dns_resolver):
-        print("In line 230")
-        print(dns_resolver.nameservers)
+        # print("In line 230")
+        # print(dns_resolver.nameservers)
         try:
             answer = dns_resolver.resolve(qname=query_name, rdtype=rdatatype.A, source=source_ip,  # 根据根服务器IP查找 domain_name
                                       raise_on_no_answer=False, source_port=source_port)
         except:
-            print("In except")
+            # print("In except")
             return self.query(query_name=query_name, source_ip=source_ip, source_port=source_port)
 
         response = answer.response  # 获得权威服务器的回复报文
 
-        print("The response from authority server is ")
-        print(response)
+        # print("The response from authority server is ")
+        # print(response)
         # print(response.answer[0].rdtype)
 
         if response.answer != [] and response.answer[0].rdtype == 1:  # 如果可以直接得到A类型信息，就直接返回
-            print("The target ip = ")
-            print(response.answer[0][0].to_text())
+            # print("The target ip = ")
+            # print(response.answer[0][0].to_text())
+            ttl_list.append(response.answer[0].ttl)
             target_ip = response.answer[0][0].to_text()
             target_name = response.answer[0].name
             return target_ip, target_name
 
         elif response.answer != [] and response.answer[0].rdtype == rdatatype.CNAME:
             query_name = response.answer[0][0].to_text()
-            print("Now query_name = ")
-            print(query_name)
+            cname.append(query_name)
+            ttl_list.append(response.answer[0].ttl)
+            # print("Now query_name = ")
+            # print(query_name)
 
             return self.dfs(query_name=query_name, source_ip=source_ip, source_port=source_port, dns_resolver=dns_resolver)
 
 
 
-        print("now query_name = ")
-        print(query_name)
+        # print("now query_name = ")
+        # print(query_name)
         # 使用规范主机名再进行A类型查询
         if answer.response.additional != []:
             dns_resolver.nameservers = []
@@ -270,8 +382,8 @@ class DNSHandler(threading.Thread):
         if answer.response.authority != []:
             name = query_name
             query_name = response.authority[0][0].to_text()
-            print("In authority, query_name = ")
-            print(query_name)
+            # print("In authority, query_name = ")
+            # print(query_name)
             authority_ip, authority_name = self.query(query_name= query_name, source_ip=source_ip, source_port=source_port)
             query_name = name
             dns_resolver.nameservers = [authority_ip]
@@ -293,8 +405,8 @@ class DNSHandler(threading.Thread):
 
         response = answer.response  # 用规范主机名获得权威服务器的回复报文
 
-        print("The response from authority server2 is ")
-        print(response)
+        # print("The response from authority server2 is ")
+        # print(response)
 
         # 如果得不到答案就重复询问直到得到答案为止
         while response.answer == []:
@@ -309,11 +421,9 @@ class DNSHandler(threading.Thread):
 
         target_ip = response.answer[0][0].to_text()
         target_name = response.answer[0].name
-        print("target_ip = ")
-        print(target_ip)
-        return target_ip, target_name
-
-
+        # print("target_ip = ")
+        # print(target_ip)
+        return target_ip, target_name, response
 
     def queryRoot(self, source_ip, source_port):
         """
@@ -361,6 +471,6 @@ if __name__ == '__main__':
     print(root_sever_ip)
     print(root_severs)
 
-    dns_handler.query("www.sina.com", source_ip=source_ip, source_port=source_port)
+    # dns_handler.query("www.baidu.com", source_ip=source_ip, source_port=source_port)
 
-    # local_dns_server.start()
+    local_dns_server.start()

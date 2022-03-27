@@ -250,11 +250,11 @@ class DNSHandler(threading.Thread):
 
 
         # get the response message from the TLD DNS server
-        response = answer.response  # 获得了TLD服务器的回复报文
+        response = answer.response
 
 
 
-        # 将所有权威服务器的IP作为下次查询的服务器
+
         # append all the authority DNS servers as the servers to which I'm going to query
         dns_resolver.nameservers = []
         for rr in response.additional:
@@ -268,7 +268,7 @@ class DNSHandler(threading.Thread):
     def dfs(self, source_ip, source_port, query_name, dns_resolver):
 
         try:
-            answer = dns_resolver.resolve(qname=query_name, rdtype=rdatatype.A, source=source_ip,  # 根据根服务器IP查找 domain_name
+            answer = dns_resolver.resolve(qname=query_name, rdtype=rdatatype.A, source=source_ip,
                                       raise_on_no_answer=False, source_port=source_port)
         except:
 
@@ -278,7 +278,7 @@ class DNSHandler(threading.Thread):
         response = answer.response
 
         # directly return the target_ip and target_name if the A type message can be found
-        if response.answer != [] and response.answer[0].rdtype == 1:  # 如果可以直接得到A类型信息，就直接返回
+        if response.answer != [] and response.answer[0].rdtype == 1:
 
             ttl_list.append(response.answer[0].ttl)
             target_ip = response.answer[0][0].to_text()
@@ -319,10 +319,10 @@ class DNSHandler(threading.Thread):
                                       raise_on_no_answer=False, source_port=source_port)
 
 
-        response = answer.response  # 用规范主机名获得权威服务器的回复报文
+        response = answer.response
 
         # continue to query repeatly until we can find the answer
-        # 如果得不到答案就重复询问直到得到答案为止
+
         while response.answer == []:
 
             dns_resolver.nameservers = []

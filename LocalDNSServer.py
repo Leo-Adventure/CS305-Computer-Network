@@ -7,8 +7,10 @@ import time
 from dns.resolver import NoNameservers
 from dnslib import DNSRecord, QTYPE, RD, SOA, DNSHeader, RR, A, CNAME
 
-cname = [] # used for store the canonical hostname
-ttl_list = [] # used for store the TTL list
+cname = [] # used for store the canonical hostname # The first element is the domain name, and other elements will
+# be the canonical name of the domain name if any, and the last element will be the IP information of the domain name.
+# according to the massage stored in cname list, we can generate the response message.
+ttl_list = [] # used for store the TTL list, the ttl_list store the ttl for each answer including the A type and CN type answer.
 flag = True # used as the signal of cache
 
 

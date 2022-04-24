@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <title>Danmaku</title>
+</head>
+
+<body>
+
+  <div class="screen_container" id="contents">
+  </div>
+
+  <div class="main">
+    <textarea id="danmakutext" type="text" placeholder="Danmaku~"></textarea>
+    <button class="send">Send</button>
+  </div>
+  <style>
+    .screen_container {
+      position: relative;
+      width: 800px;
+      height: 400px;
+      margin: 30px auto;
+      background: #000;
+      overflow: hidden;
+      border-style: solid;
+      border-radius: 25px;
+      border-color: rgb(238, 26, 139);
+    }
+
+    .main {
+      width: 600px;
+      margin: 20px auto;
+      text-align: center;
+    }
+  </style>
+  <!-- jQuery -->
+  <script src="https://cdn.staticfile.org/jquery/3.3.1/jquery.min.js"></script>
+  <script>
+    const timers = [];
+    const jqueryDom = createDanmaku('hihihi'); // test danmaku, delete it as you like
+    addInterval(jqueryDom);// test danmaku, delete it as you like
+
+    // TODO: construct http request for communication
+    // $.get("http://127.0.0.1:8765", function(data){
+    //     alert("数据已经获取：" + data)
+    //   })
+    // TODO: add polling rules for new danmakus
+
+    $(".send").on("click", function () {
+      // TODO: send danmaku to server
+      
+      // var content = $('#danmukutext').val();
+      // console.log(content)
+      
+      const v = document.getElementById("danmakutext").value;
+      console.log(v)
+      $.post("http://127.0.0.1:8765", v, function(data){
+        alert("In post method, data = " + data)
+      });
+     
+      console.log(v);
+
+      $.get("http://127.0.0.1:8765/NEWDANMAKUS", function(data){
+        alert("数据已经获取：" + data)
+      })
+    });
+
+    // create a Dom object corresponding to a danmaku
+    function createDanmaku(text) {
+      const jqueryDom = $("<div class='bullet'>" + text + "</div>");
+      const fontColor = "rgb(255,255,255)";
+      const fontSize = "20px";
+      let top = Math.floor(Math.random() * 400) + "px";
+      const left = $(".screen_container").width() + "px";
+      jqueryDom.css({
+        "position": 'absolute',
+        "color": fontColor,
+        "font-size": fontSize,
+        "left": left,
+        "top": top,
+      });
+      $(".screen_container").append(jqueryDom);
+      return jqueryDom;
+    }
+    // add timer task to let the danmaku fly from right to left
+    function addInterval(jqueryDom) {
+      let left = jqueryDom.offset().left - $(".screen_container").offset().left;
+      const timer = setInterval(function () {
+        left--;
+        jqueryDom.css("left", left + "px");
+        if (jqueryDom.offset().left + jqueryDom.width() < $(".screen_container").offset().left) {
+          jqueryDom.remove();
+          clearInterval(timer);
+        }
+      }, 5); // set delay as 5ms,which means the danmaku changes its position every 5ms
+      timers.push(timer);
+    }
+  </script>
+</body>
+
+</html>

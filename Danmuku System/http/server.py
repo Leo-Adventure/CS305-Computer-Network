@@ -1,9 +1,13 @@
 import asyncio
+import time
+import re
+import sys
+
 
 keys = ('method', 'path', 'Range')
 
-import sys
 danmakus = []
+clients = []
 
 class HTTPHeader:
     """
@@ -28,7 +32,7 @@ class HTTPHeader:
         if fields[0] == 'GET' or fields[0] == 'POST' or fields[0] == 'HEAD':
             self.headers['method'] = fields[0]
             self.headers['path'] = fields[1]
-            sys.stderr.write("method: {}\t path: {}\n".format(fields[0], fields[1])) 
+            # sys.stderr.write("method: {}\t path: {}\n".format(fields[0], fields[1]))
         fields = line.split(':', 1)
         if fields[0] == 'Range':
             start, end = (fields[1].strip().strip('bytes=')).split('-')
@@ -97,37 +101,51 @@ async def dispatch(reader, writer):
     httpHeader = HTTPHeader()
     while True:
         data = await reader.readline()
-        print(data)
         message = data.decode()
         
         httpHeader.parse_header(message)
-        # print(httpHeader.message)
         if data == b'\r\n' or data == b'':
             break
     if httpHeader.method == 'GET':
         httpHeader.set_state('200 OK')
-        print("receive GET")
-        print(httpHeader.path)
-        if httpHeader.path == '/': 
-            print("In path...")
+        if httpHeader.path == '/':
             writer.write(httpHeader.message().encode(encoding='utf-8'))  # construct 200 OK HTTP header
             html_page = open("danmu.html", encoding='utf-8')
-            contents = html_page.readlines()  
+            contents = html_page.readlines()
             homepage = ''
             for e in contents:
                 homepage += e 
-            writer.write(homepage.encode())  # Response for GET PAGE (写入页面)
-        elif httpHeader.path == '/NEWDANMAKUS':
-            print("In new Danmakus") 
+            writer.write(homepage.encode())
+        elif httpHeader.path[:12] == '/NEWDANMAKUS': #TODO : 收到轮询之后按照请求的弹幕ID发送回客户端
+            id = httpHeader.path[13:]
+            id = int(id)
+            print(id)
+            print("Get newDanmakus")
+            writer.write(httpHeader.message().encode(encoding='utf-8'))
+
+            if id < len(danmakus):
+                id = str(id)
+                writer.write(id.encode(encoding='utf-8'))
+                id = int(id)
+                writer.write(danmakus[id].encode(encoding='utf-8'))
+            else:
+                id = str(-1)
+                writer.write(id.encode(encoding='utf-8'))
+
+            pass
+
         elif httpHeader.path == '/favicon.ico':
             pass
              
         else: 
             assert False 
-        # TODO: handle get request with different situation: GET PAGE and GET NEWDANMAKUS
+        # TODO: handle get request with different situations: GET PAGE and GET NEWDANMAKUS
     elif httpHeader.get('method') == 'POST':
-        # TODO: handle post request with given parameters
+        # TODO: handle post request with given parameters，解析 POST 报文，获得弹幕信息之后进行存储
         print("receive POST")
+        danmu = httpHeader.path
+        danmu = danmu[1:len(danmu)]
+        danmakus.append(danmu)
         httpHeader.set_state('200 OK')
         writer.write(httpHeader.message().encode(encoding='utf-8'))  # construct 200 OK HTTP header
 

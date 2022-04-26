@@ -34,36 +34,46 @@
       text-align: center;
     }
   </style>
+
   <!-- jQuery -->
   <script src="https://cdn.staticfile.org/jquery/3.3.1/jquery.min.js"></script>
   <script>
     const timers = [];
+    var id = 0;
     const jqueryDom = createDanmaku('hihihi'); // test danmaku, delete it as you like
     addInterval(jqueryDom);// test danmaku, delete it as you like
 
     // TODO: construct http request for communication
-    // $.get("http://127.0.0.1:8765", function(data){
-    //     alert("数据已经获取：" + data)
-    //   })
-    // TODO: add polling rules for new danmakus
 
+    $.get("http://127.0.0.1:8765", function(data){
+        alert("数据已经获取：" + data)
+      })
+
+    // TODO: add polling rules for new danmakus（轮询）
+    // 发起长轮询，得到弹幕之后进行create 之后addinterval发送
+    setInterval("request();",0.3*60*1000);//10分钟执行一次setInterval("circulateExecute();",10*60*1000);//10分钟执行一次
+
+    function request() {
+      request_danmu_url = "http://127.0.0.1:8765/NEWDANMAKUS/" + id.toString();
+
+      $.get(request_danmu_url, function(data){
+
+        id = id + 1;
+        console.log(id)
+        console.log(data)
+      })
+    }
     $(".send").on("click", function () {
-      // TODO: send danmaku to server
-      
-      // var content = $('#danmukutext').val();
-      // console.log(content)
+      // TODO: send danmaku to server, 得到弹幕之后通过POST方法发送给服务器
       
       const v = document.getElementById("danmakutext").value;
       console.log(v)
-      $.post("http://127.0.0.1:8765", v, function(data){
+      url = "http://127.0.0.1:8765/" + v
+
+      $.post(url, v, function(data){
         alert("In post method, data = " + data)
       });
-     
-      console.log(v);
 
-      $.get("http://127.0.0.1:8765/NEWDANMAKUS", function(data){
-        alert("数据已经获取：" + data)
-      })
     });
 
     // create a Dom object corresponding to a danmaku

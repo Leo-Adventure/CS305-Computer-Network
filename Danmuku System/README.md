@@ -74,7 +74,38 @@ finally:
     websocket.close()
 ```
 
+#### 新加入客户端历史弹幕显示
+
+通过将每一次发送的历史弹幕存储在一个全局变量当中，可以实现对于新加入的客户端，都进行历史弹幕的重新发送
+
+```python
+for msg in history:
+    await websocket.send(msg)
+```
+
+其中 `history` 存储的是历史弹幕信息
+
 以上就是 `websocket` 进行弹幕显示的 basic 部分
+
+### HTTP Part
+
+#### CORS 跨域错误修复
+
+跨域问题的原因：浏览器出于安全考虑，限制访问本站点以外的资源
+
+可以通过在 HTTP 回复报文的尾部添加以下字段，将访问权限扩大，之后即可解决
+
+```http
+'Access-Control-Allow-Origin: * \r\n' \
+```
+
+#### 客户端收到弹幕后发送到服务器
+
+#### 服务器收到弹幕后存储
+
+#### 客户端轮询请求弹幕信息
+
+#### 服务器发送弹幕信息
 
 ## Bonus Part
 
@@ -94,3 +125,10 @@ var fsize = (Math.random() * 20 + 20) + "";
 const fontSize = fsize + "px";
 ```
 
+## Comparision between WebSocket and HTTP
+
+1. Websocket is a two-way communication protocol, which can send or receive information in both directions. While HTTP is a one-way communication protocol, which can only be launched by client, not server.
+2. After I implemented the two version of Danmakus system, I noticed that the WebSocket requires a handshake between the browser and the server to establish a connection, while http is a connection initiated by the browser to the server.
+3. Because of the polling rule in HTTP, the pressure of server is bigger than the Websocket server.
+4. The data transmitted by Websocket is usually less than which sent by HTTP, because the HTTP is stateless, which means that redundant information about the request is sent in every HTTP request and response in order to use Cookie to identify client, while Websocket client has its status. The transmission of Websocket upgrade the efficiency compared to HTTP.
+5. The speed of Websocket is faster than the HTTP. Because data is displayed on the client side using a web socket, which is continuously sent by the backend server. In WebSocket, data is continuously pushed/transmitted into the same connection that is already open, while HTTP will somtimes close the connection after return some information, which is why WebSocket is faster than HTTP and improves application performance.

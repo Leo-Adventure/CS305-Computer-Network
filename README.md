@@ -11,3 +11,5 @@ I have written detailed comment in the code.
 ## Danmuku System
 
 In assignment2, we were required to implement a danmuku system using both websocket and HTTP protocol.
+
+Now update to WS implementation

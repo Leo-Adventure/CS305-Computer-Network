@@ -7,9 +7,11 @@
 </head>
 
 <body>
+  
 
   <div class="screen_container" id="contents">
   </div>
+  
 
   <div class="main">
     <textarea id="danmakutext" type="text" placeholder="Danmaku~"></textarea>
@@ -21,19 +23,40 @@
       width: 800px;
       height: 400px;
       margin: 30px auto;
-      background: #000;
+      background: rgb(146, 199, 240);
       overflow: hidden;
       border-style: solid;
+      /* background-image: url(https://www.google.com/imgres?imgurl=http%3A%2F%2Fpic.616pic.com%2Fbg_w1180%2F00%2F00%2F32%2FiOZIMb32gr.jpg&imgrefurl=http%3A%2F%2F616pic.com%2Fsucai%2Fvwkf7jx7v.html&tbnid=JAHYixRH58UOCM&vet=12ahUKEwiQisDvx7T3AhUzJaYKHdffAPUQMygBegUIARCyAQ..i&docid=je7rCYUtF9X1HM&w=1180&h=590&q=%E6%98%9F%E7%A9%BA%E5%9B%BE%E7%89%87%E4%B8%8B%E8%BD%BD&ved=2ahUKEwiQisDvx7T3AhUzJaYKHdffAPUQMygBegUIARCyAQ); */
       border-radius: 25px;
-      border-color: rgb(238, 26, 139);
+      border-color: rgb(44, 26, 238);
     }
+
+    body
+{
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    min-width: 1000px;
+    background-image:url("https://obohe.com/i/2022/04/27/12ps7uy.jpg");
+    background-repeat:no-repeat;
+    background-size: 100% 100%;
+    background-attachment: fixed;
+    -webkit-background-size: cover;
+    -o-background-size: cover;
+    background-position: center 0;
+}
 
     .main {
       width: 600px;
+      text-decoration-color: aqua;
       margin: 20px auto;
+      
       text-align: center;
     }
   </style>
+  
 
   <!-- jQuery -->
   <script src="https://cdn.staticfile.org/jquery/3.3.1/jquery.min.js"></script>
@@ -43,55 +66,63 @@
     const jqueryDom = createDanmaku('hihihi'); // test danmaku, delete it as you like
     addInterval(jqueryDom);// test danmaku, delete it as you like
 
-    // TODO: construct http request for communication
 
-    $.get("http://127.0.0.1:8765", function(data){
-        alert("数据已经获取：" + data)
-      })
-
-    // TODO: add polling rules for new danmakus（轮询）
     // 发起长轮询，得到弹幕之后进行create 之后addinterval发送
-    setInterval("request();",0.3*60*1000);//10分钟执行一次setInterval("circulateExecute();",10*60*1000);//10分钟执行一次
+    setInterval("request();", 0.001 * 60 * 1000);//每隔一段时间执行一次request 函数
 
     function request() {
-      request_danmu_url = "http://127.0.0.1:8765/NEWDANMAKUS/" + id.toString();
 
-      $.get(request_danmu_url, function(data){
+      request_danmu_url = "http://127.0.0.1:8765/" + id;
 
-        id = id + 1;
-        console.log(id)
-        console.log(data)
+      $.get(request_danmu_url, function (data) {
+        // console.log("In conducting...")
+        // console.log(data)
+        // 从 data 里面获取 id 信息
+        if (data != '') {
+          // 获取弹幕信息
+          // console.log("data is not empty")
+          const danmaku_to_print = createDanmaku(data);
+          addInterval(danmaku_to_print);
+          id = id + 1;
+        }
       })
     }
+
+
     $(".send").on("click", function () {
-      // TODO: send danmaku to server, 得到弹幕之后通过POST方法发送给服务器
-      
+
       const v = document.getElementById("danmakutext").value;
-      console.log(v)
+      // console.log(v)
       url = "http://127.0.0.1:8765/" + v
-
-      $.post(url, v, function(data){
-        alert("In post method, data = " + data)
+      $.post(url, v, function (data) {
+        // console.log("Receive post request");
+        // console.log(data)
       });
-
     });
 
     // create a Dom object corresponding to a danmaku
     function createDanmaku(text) {
-      const jqueryDom = $("<div class='bullet'>" + text + "</div>");
-      const fontColor = "rgb(255,255,255)";
-      const fontSize = "20px";
-      let top = Math.floor(Math.random() * 400) + "px";
-      const left = $(".screen_container").width() + "px";
-      jqueryDom.css({
+    var timestamp = Date.parse(new Date());
+    timestamp = timestamp % 255;
+    var time_str_r = timestamp + "";
+    var time_str_g = (timestamp + Math.random() * 100) % 255 + "";
+    var time_str_b = (timestamp + Math.random() * 200) % 255 + "";
+    const jqueryDom = $("<div class='bullet'>" + text + "</div>");
+    const fontColor = "rgb(" + time_str_r + "," + time_str_g + "," + time_str_b + ")";
+    var fsize = (Math.random() * 20 + 20) + "";
+    const fontSize = fsize + "px";
+    let top = Math.floor(Math.random() * 400) + "px";
+    const left = $(".screen_container").width() + "px";
+    jqueryDom.css({
         "position": 'absolute',
         "color": fontColor,
         "font-size": fontSize,
         "left": left,
         "top": top,
-      });
-      $(".screen_container").append(jqueryDom);
-      return jqueryDom;
+        
+    });
+    $(".screen_container").append(jqueryDom);
+    return jqueryDom;
     }
     // add timer task to let the danmaku fly from right to left
     function addInterval(jqueryDom) {

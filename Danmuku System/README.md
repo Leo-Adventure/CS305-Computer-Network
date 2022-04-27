@@ -4,19 +4,19 @@
 
 ### Web Socket 
 
-#### Websocket 连接建立
+#### Building a Websocket connection
 
-通过
+Using
 
 ```js
 var ws = new WebSocket('ws://localhost:8765');
 ```
 
-建立到 `localhost:8765` 的 `websocket` 连接
+to build the websocket connection to `localhost:8765`
 
-#### 通过 send 按钮接收弹幕并发送
+#### Receiving danmakus with "Send" button and send the danmakus
 
-通过下列代码，通过 `click ` 动作接收信息，并将在网页中键入的弹幕信息进行接收，并且将该信息通过 `send` 方法发送到服务器上面
+Using the code showing below, we can receive the message by "click" action, then accept the danmakus information in web page. Then I wiil send the message to the server using "send" method.
 
 ```javascript
 $(".send").on("click", function () {
@@ -25,19 +25,16 @@ $(".send").on("click", function () {
 });
 ```
 
+#### Broadcast to all the clients and show the danmakus in them
 
-
-#### 广播给所有客户端并各自展示
-
-在 `python ` 代码当中，在建立与 `websocket` 服务器的连接之后，通过维护一个全局列表，将每一个连接到客户端进行记录，
+In Python code, when I finish building the connection to the websocket server, I can maintein a global list to record all the clients connecting to the server.
 
 ```python
  connected.append(websocket)
+    
 ```
 
-
-
-不断接收来自任何一个客户端的信息，并将任何一个客户端发送过来的弹幕进行广播，将其在每个客户端都进行显示。
+Then the server will accept all the information sent by clients, then will broadcast the message to all the clients, then the clients will show the message reveived.
 
 ```python
 while True: 
@@ -46,8 +43,6 @@ while True:
     print ("Receive a message: {}".format(msg))
 ```
 
-对于每一个客户端来说，每收到一个广播来的弹幕信息，便会在客户端进行对应的显示
-
 ```js
 ws.onmessage = function (data) {
     const rec_danmuku = createDanmaku(data.data);
@@ -55,11 +50,9 @@ ws.onmessage = function (data) {
 }
 ```
 
+#### The exit of client
 
-
-#### 客户端退出
-
-客户端退出会引发一个`websockets.exceptions.ConnectionClosedOK` 的异常，通过捕获该异常，进行对客户端退出信息的告知。
+The exit of client will trigger a `websockets.exceptions.ConnectionClosedOK` exception, then we can catch the exception then signal the exit information to user.
 
 ```python
 try:
@@ -69,49 +62,115 @@ try:
 except websockets.exceptions.ConnectionClosedOK:
     print("Bye{}".format(name))
 finally:
-    
     connected.remove(websocket)
     websocket.close()
 ```
 
-#### 新加入客户端历史弹幕显示
+#### Display the history danmakus in newcomer client
 
-通过将每一次发送的历史弹幕存储在一个全局变量当中，可以实现对于新加入的客户端，都进行历史弹幕的重新发送
+Using a global list to save all the history danmakus, we can make all the newcomer client will display all the history danmakus.
 
 ```python
 for msg in history:
     await websocket.send(msg)
 ```
 
-其中 `history` 存储的是历史弹幕信息
+The 'history' in it save the history danmakus.
 
-以上就是 `websocket` 进行弹幕显示的 basic 部分
+The basic part of websocket danmakus is shown as above.
 
 ### HTTP Part
 
-#### CORS 跨域错误修复
+#### Send Danmakus to Server
 
-跨域问题的原因：浏览器出于安全考虑，限制访问本站点以外的资源
+By concat the danmakus in the end of url, we can then use POST method to pass the danmakus to the server.
 
-可以通过在 HTTP 回复报文的尾部添加以下字段，将访问权限扩大，之后即可解决
+```javascript
+$(".send").on("click", function () {
 
-```http
-'Access-Control-Allow-Origin: * \r\n' \
+    const v = document.getElementById("danmakutext").value;
+    console.log(v)
+    url = "http://127.0.0.1:8765/" + v
+
+    $.post(url, v, function (data) {
+
+    });
+
+    });
 ```
 
-#### 客户端收到弹幕后发送到服务器
+#### Receive and save the danmakus.
 
-#### 服务器收到弹幕后存储
+By analyze the path information passed by url, the server can extract the danmakus information from  URL and save it.
 
-#### 客户端轮询请求弹幕信息
+```python
+if httpHeader.get('method') == 'POST':
+    danmu = httpHeader.path
+    danmu = danmu[1:len(danmu)]
+    danmakus.append(danmu) # save in the global list
+    httpHeader.set_state('200 OK')
+    writer.write(httpHeader.message().encode(encoding='utf-8')
+```
 
-#### 服务器发送弹幕信息
+#### Require the danmakus by polling
+
+```javascript
+ // 发起长轮询，得到弹幕之后进行create 之后addinterval发送
+    setInterval("request();", 0.001 * 60 * 1000);//每隔一段时间执行一次request 函数
+
+    function request() {
+
+      request_danmu_url = "http://127.0.0.1:8765/" + id;
+
+      $.get(request_danmu_url, function (data) {
+        // console.log("In conducting...")
+        // console.log(data)
+        // get the id information from data
+        if (data != '') {
+          // get the danmakus information
+          // console.log("data is not empty")
+          const danmaku_to_print = createDanmaku(data);
+          addInterval(danmaku_to_print);
+          id = id + 1;
+        }
+      })
+    }
+```
+
+#### Send  the danmakus information
+
+When the server reveive the "GET" request to get new danmakus information, the server will use "writer.write" method to write back the danmakus information to the client.
+
+```javascript
+id = httpHeader.get('path')[1:]
+    id = int(id)
+    httpHeader.set_state('200 OK')
+    writer.write(httpHeader.message().encode(encoding='utf-8'))
+    if id < len(danmakus): #return the danmakus required by client
+        for index in range(id, len(danmakus)):
+        	writer.write(danmakus[index].encode(encoding='utf-8'))
+```
+
+
+
+
+## Result show
+
+### Websocket
+
+![image-20220427232042671](C:\Users\86181\AppData\Roaming\Typora\typora-user-images\image-20220427232042671.png)
+
+### HTTP
+
+![image-20220427231507893](C:\Users\86181\AppData\Roaming\Typora\typora-user-images\image-20220427231507893.png)
+
+
 
 ## Bonus Part
 
-### 弹幕颜色大小美化
+### Beautify the Danmakus
 
-通过改变前端代码，使得弹幕颜色以及大小遵循一定范围内随机使得弹幕颜色以及大小均变得更加多样
+Changing the HTML code to make the color and size of danmakus to change in random. Then the users will find it comfortable to watch the danmakus.
 
 ```javascript
 var timestamp = Date.parse(new Date());
@@ -124,6 +183,10 @@ const fontColor = "rgb(" + time_str_r + "," + time_str_g + "," + time_str_b + ")
 var fsize = (Math.random() * 20 + 20) + "";
 const fontSize = fsize + "px";
 ```
+
+And I also change the margin color and add background picture, etc to make the system more beatiful.
+
+![image-20220427234720200](C:\Users\86181\AppData\Roaming\Typora\typora-user-images\image-20220427234720200.png)
 
 ## Comparision between WebSocket and HTTP
 

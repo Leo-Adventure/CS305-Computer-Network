@@ -33,6 +33,8 @@ class Router:
     table = []  # 最终的路由表
     gate_map = {}  # 哈希表: 子网区域 -> 经过接口（如果是直接相连就映射到自己的对应接口）
 
+    aggre_table = []
+
     def __init__(self):
         self.addr = []
         self.edge = []
@@ -46,6 +48,8 @@ class Router:
         self.cost_map = {}
         self.table = []
         self.gate_map = {}
+
+        self.aggre_table = []
 
     def print_table_info(self):
         print("Not implemented yet")
@@ -152,11 +156,93 @@ def dijkstra(src: Host, dst: Host, flag:bool):
         return 0
 
 # 路由聚合
-def route_aggregation(router: Router) -> list:
-    
-    return router.table
+def route_aggregation(router: Router):
 
-    pass
+    interface_map = {} # 映射：发送接口 -> 子网列表
+
+    for key in router.cost_map:
+        if router.cost_map[key] == 0:
+            continue
+        interface_addr = router.gate_map[key] # 发送接口的地址
+        if interface_addr not in interface_map:
+            interface_map[interface_addr] = []
+            interface_map[interface_addr].append(key)
+        else:
+            interface_map[interface_addr].append(key)
+
+    aggre_map = {} # 映射：前16位 -> 具体子网号列表
+    for key in interface_map:
+        net_list = interface_map[key]
+        for net in net_list:
+            # 提取出前 16 位
+            base_list = net.split('.')
+            base = base_list[0] + '.' + base_list[1]
+            if base not in aggre_map:
+                aggre_map[base] = []
+                aggre_map[base].append(net)
+            else:
+                aggre_map[base].append(net)
+
+    # 对同一块 base 里面的地址做路由聚合
+    for key in aggre_map:
+        if len(aggre_map[key]) >= 2:
+            # 提取最长公共前缀长度
+
+            lng_part1 = int(aggre_map[key][0].split('.')[2])
+            lng_part2 = int(aggre_map[key][0].split('.')[3].split('/')[0])
+            longest_num = int(aggre_map[key][0].split('.')[3].split('/')[1])
+
+            for net in aggre_map[key]:
+                cnt = 16
+                part1 = int(net.split('.')[2])
+                part2 = int(net.split('.')[3].split('/')[0])
+
+                # 比较第一部分 (part1 and lng_part1)
+                mask = 128
+                aggre_num = 0 # 第三部分的子网段
+                continue_flag = True # 代表是否需要进行第二部分的比较
+                for i in range(8):
+                    lng_num = mask & lng_part1
+                    num = mask & part1
+                    if lng_num == num:
+                        aggre_num = aggre_num + pow(2, 8-i) * (num >> 7)
+                        cnt = cnt + 1
+                    else:
+                        continue_flag = False
+                        break
+
+                aggre_num2 = 0 # 第四部分的子网段
+                # 如果需要的话，比较第二部分(part2 and lng_part2)
+                if continue_flag:
+                    for i in range(8):
+                        lng_num = mask & lng_part2
+                        num = mask & part2
+                        if lng_num == num:
+                            aggre_num2 = aggre_num2 + pow(2, 8 - i) * (num >> 7)
+                            cnt = cnt + 1
+                        else:
+                            break
+
+                longest_num = min(cnt, longest_num)
+                lng_part1 = aggre_num
+                lng_part2 = aggre_num2
+
+            res_str = aggre_map[key][0].split('.')[0] +'.'+ aggre_map[key][0].split('.')[1] + '.' + str(lng_part1) + '.' + str(lng_part2) + '/' + str(longest_num)
+            aggre_map[key] = [res_str]
+
+
+    for key in router.cost_map:
+        if router.cost_map[key] == 0:
+            router.aggre_table.append(key + ' is directly connected')
+        else:
+            out_interface = router.gate_map[key] # 发送接口
+            for net in interface_map[out_interface]:
+                base_list = net.split('.')
+                base = base_list[0] + '.' + base_list[1]
+                router.aggre_table.append(aggre_map[base] + ' via ' + router.gate_map[key])
+            
+    router.aggre_table.sort()
+
 
 # 计算子网 返回字符串(子网号)
 def cal_subnet(string: str) -> str:
@@ -194,6 +280,7 @@ def add_table(router:Router):
 
 if __name__ == '__main__':
     # print(cal_subnet('200.30.5.0/22'))
+
     with open(sys.argv[1], 'r') as f:
         idx = 0
         for i in range(3):
@@ -281,13 +368,7 @@ if __name__ == '__main__':
                         from_host.weight.append(w)
                         to_router.edge.append(from_host)
                         to_router.weight.append(w)
-                        # print("now {}'s edge contains ".format(from_host.addr))
-                        # for edge in from_host.edge:
-                        #     print(edge.addr)
-                        #
-                        # print("now {}'s edge contains ".format(to_router.addr))
-                        # for edge in to_router.edge:
-                        #     print(edge.addr)
+
 
                     elif from_node in addr_router_map and to_node in addr_router_map:
 
@@ -302,13 +383,7 @@ if __name__ == '__main__':
                         from_router.weight.append(w)
                         to_router.edge.append(from_router)
                         to_router.weight.append(w)
-                        # print("now {}'s edge contains ".format(from_router.addr))
-                        # for edge in from_router.edge:
-                        #     print(edge.addr)
-                        #
-                        # print("now {}'s edge contains ".format(to_router.addr))
-                        # for edge in to_router.edge:
-                        #     print(edge.addr)
+
 
                     elif from_node in addr_router_map and to_node in addr_host_map:
 
@@ -323,26 +398,10 @@ if __name__ == '__main__':
                         to_host.weight.append(w)
                         from_router.edge.append(to_host)
                         from_router.weight.append(w)
-                        # print("now {}'s edge contains ".format(from_router.addr))
-                        # for edge in from_router.edge:
-                        #     print(edge.addr)
-                        #
-                        # print("now {}'s edge contains ".format(to_host.addr))
-                        # for edge in to_host.edge:
-                        #     print(edge.addr)
+
                     else:
                         print("In building graph, the condition is not taken into consideration")
-        ''' 检验建图是否正确
-        for host in host_list:
-            print("host_id = {}".format(host.idx))
-            for edge in host.edge:
-                print(edge.addr)
 
-        for router in router_list:
-            print("router_id = {}".format(router.idx))
-            for edge in router.edge:
-                print(edge.addr)
-        '''
 
         case_num = int(f.readline())
         for i in range(case_num):
@@ -367,6 +426,10 @@ if __name__ == '__main__':
                     for item in router.table:
                         print(item)
                     print("After")
+                for router in router_list:
+                    print("new router")
+                    route_aggregation(router)
+
 
 
             else:  # 如果是 TABLE, 则接收一个路由器的端口信息进行映射

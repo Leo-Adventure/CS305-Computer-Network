@@ -52,7 +52,12 @@ class Router:
         self.aggre_table = []
 
     def print_table_info(self):
-        print("Not implemented yet")
+        for info in self.table:
+            print(info)
+        print("After")
+        for info in self.aggre_table:
+            print(info)
+
 
 
 addr_list = []
@@ -158,30 +163,49 @@ def dijkstra(src: Host, dst: Host, flag:bool):
 # 路由聚合
 def route_aggregation(router: Router):
 
-    interface_map = {} # 映射：发送接口 -> 子网列表
+    interface_map = {} # 映射：发送接口 -> 子网列表[]
 
-    for key in router.cost_map:
+    for key in router.cost_map: # key example: 67.100.3.8/24
         if router.cost_map[key] == 0:
             continue
-        interface_addr = router.gate_map[key] # 发送接口的地址
+        interface_addr = router.gate_map[key] # 发送接口的地址 example: 67.100.3.3/24
         if interface_addr not in interface_map:
             interface_map[interface_addr] = []
             interface_map[interface_addr].append(key)
         else:
             interface_map[interface_addr].append(key)
 
-    aggre_map = {} # 映射：前16位 -> 具体子网号列表
+    # Test interface_map
+    '''
+    print("Test for interface_map")
+    for key in router.cost_map:
+
+        if router.cost_map[key] == 0:
+            continue
+        print("Key = {}".format(key))
+        interface_addr = router.gate_map[key]
+
+        print(interface_map[interface_addr])
+    '''
+
+    aggre_map = {} # 映射：前16位子网号 -> 具体子网号列表
     for key in interface_map:
         net_list = interface_map[key]
-        for net in net_list:
+        for net in net_list: # net example: 67.100.3.8/24
             # 提取出前 16 位
             base_list = net.split('.')
-            base = base_list[0] + '.' + base_list[1]
+            base = base_list[0] + '.' + base_list[1] # base example: 67.100
             if base not in aggre_map:
                 aggre_map[base] = []
                 aggre_map[base].append(net)
             else:
                 aggre_map[base].append(net)
+    # Test aggre_map
+    '''
+    print("Test for aggre_map")
+    for key in aggre_map:
+        print("{} -> {}".format(key, aggre_map[key]))
+    '''
 
     # 对同一块 base 里面的地址做路由聚合
     for key in aggre_map:
@@ -190,7 +214,9 @@ def route_aggregation(router: Router):
 
             lng_part1 = int(aggre_map[key][0].split('.')[2])
             lng_part2 = int(aggre_map[key][0].split('.')[3].split('/')[0])
+
             longest_num = int(aggre_map[key][0].split('.')[3].split('/')[1])
+
 
             for net in aggre_map[key]:
                 cnt = 16
@@ -198,18 +224,20 @@ def route_aggregation(router: Router):
                 part2 = int(net.split('.')[3].split('/')[0])
 
                 # 比较第一部分 (part1 and lng_part1)
-                mask = 128
+                mask = 128 # 8'b10000000
                 aggre_num = 0 # 第三部分的子网段
-                continue_flag = True # 代表是否需要进行第二部分的比较
+                continue_flag = True # 表示是否需要进行第二部分的比较
                 for i in range(8):
                     lng_num = mask & lng_part1
                     num = mask & part1
                     if lng_num == num:
-                        aggre_num = aggre_num + pow(2, 8-i) * (num >> 7)
+                        aggre_num = aggre_num + pow(2, 7-i) * (num >> 7)
                         cnt = cnt + 1
                     else:
                         continue_flag = False
                         break
+                    lng_part1 = lng_part1 << 1
+                    part1 = part1 << 1
 
                 aggre_num2 = 0 # 第四部分的子网段
                 # 如果需要的话，比较第二部分(part2 and lng_part2)
@@ -222,6 +250,8 @@ def route_aggregation(router: Router):
                             cnt = cnt + 1
                         else:
                             break
+                        lng_part2 = lng_part2 << 1
+                        part2 = part2 << 1
 
                 longest_num = min(cnt, longest_num)
                 lng_part1 = aggre_num
@@ -230,8 +260,15 @@ def route_aggregation(router: Router):
             res_str = aggre_map[key][0].split('.')[0] +'.'+ aggre_map[key][0].split('.')[1] + '.' + str(lng_part1) + '.' + str(lng_part2) + '/' + str(longest_num)
             aggre_map[key] = [res_str]
 
+    '''Test for aggre_map
+    print("Test for aggre_map")
+    for key in aggre_map:
+        print("{} -> {}".format(key, aggre_map[key]))
+    '''
 
+    cnt = 0
     for key in router.cost_map:
+        cnt = cnt+ 1
         if router.cost_map[key] == 0:
             router.aggre_table.append(key + ' is directly connected')
         else:
@@ -239,8 +276,10 @@ def route_aggregation(router: Router):
             for net in interface_map[out_interface]:
                 base_list = net.split('.')
                 base = base_list[0] + '.' + base_list[1]
-                router.aggre_table.append(aggre_map[base] + ' via ' + router.gate_map[key])
-            
+                info = aggre_map[base][0] + ' via ' + out_interface
+                if info not in router.aggre_table:
+                    router.aggre_table.append(aggre_map[base][0] + ' via ' + out_interface)
+
     router.aggre_table.sort()
 
 
@@ -352,8 +391,7 @@ if __name__ == '__main__':
                     # 记录边对应的 weight 信息
                     edge_cost_map[from_node] = w
                     edge_cost_map[to_node] = w
-                    # print("from_node = {}".format(from_node))
-                    # print("to_node = {}".format(to_node))
+
                     # 建图(三种可能的情况判断)
                     if from_node in addr_host_map and to_node in addr_router_map:
 
@@ -402,6 +440,16 @@ if __name__ == '__main__':
                     else:
                         print("In building graph, the condition is not taken into consideration")
 
+        # 运行 dijkstra 算法
+        for src_host in host_list:
+            for dst_host in host_list:
+                if dst_host != src_host:
+                    dijkstra(src_host, dst_host, False)
+
+        for router in router_list:
+            add_table(router)
+            route_aggregation(router)
+
 
         case_num = int(f.readline())
         for i in range(case_num):
@@ -411,27 +459,9 @@ if __name__ == '__main__':
                 src = addr_host_map[test_info[1]]
                 dst = addr_host_map[test_info[2]]
 
-                # 运行 dijkstra 算法
-                for src_host in host_list:
-                    for dst_host in host_list:
-                        if dst_host != src_host:
-                            dijkstra(src_host, dst_host, False)
-
-
                 dijkstra(src, dst, True)
-
-                for router in router_list:
-                    add_table(router)
-
-                    for item in router.table:
-                        print(item)
-                    print("After")
-                for router in router_list:
-                    print("new router")
-                    route_aggregation(router)
-
-
 
             else:  # 如果是 TABLE, 则接收一个路由器的端口信息进行映射
                 router_tested = addr_router_map[test_info[1].split(',')[0][2:-1]]
+
                 router_tested.print_table_info()

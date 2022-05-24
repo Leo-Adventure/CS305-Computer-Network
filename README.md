@@ -13,3 +13,7 @@ I have written detailed comment in the code.
 In assignment2, we were required to implement a danmuku system using both websocket and HTTP protocol.
 
 Now the project has finished~
+
+## Routing Simulation
+In assignment3, we were required to implemented the routing algorithm(Dijkstra Algorithm) and the routing aggregation algorithm.
+In this assignment, I get a proficiency in Python.

@@ -1,0 +1,28 @@
+# This file contains a list of link change events to execute in the simulated
+# network. Columns are as follows:
+#
+# <time> <link> <bandwidth>
+#
+# time: time (in seconds) after the previous event that this event should run
+# 		Floats are ok. The character '*' indicates the event should wait to
+#		run until the user presses enter.
+#
+# link: The link to modify. This must be one of the bottleneck links specified
+#       in netsim topology. It must be a string of the format
+#       "link_<num>", which should be identical to the link name in netsim topology.
+#
+# bandwidth: The BW to set. Should be in kbit/s unit
+#
+
+# If you want to make other event scripts for testing purposes, make them in separate files
+# and use the -e flag on netsim.py (run netsim.py -h for more info).
+
+0 link_1 1000 # start link BW at 1 mbps
+20 link_1 500 # after 20 seconds, decrease to 500 kbps
+20 link_1 250 # starting at 40 seconds, alternate b/w 250 and 500
+5 link_1 500 # starting at 40 seconds, alternate b/w 250 and 500
+5 link_1 250 
+5 link_1 500 
+5 link_1 250
+
+# continue with your own test scenarios...

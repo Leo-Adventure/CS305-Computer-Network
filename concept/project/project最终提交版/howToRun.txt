@@ -1,0 +1,36 @@
+启动项目具体操作流程
+python3 ./netsim.py servers start -s servers/2servers
+python3 dns.py servers/2servers
+python3 proxy6.py record.py 0.6 7778 7777 8080
+http://127.0.0.1:7778/index.html
+
+# 最新的启动项目的流程
+python3 netsim.py servers stop -s servers/2servers
+python3 netsim.py onelink start
+
+python3 dns.py topology/onelink/onelink
+python3 proxy9.py proxylog1.txt 0.6 7778 7775
+python3 proxy9.py proxylog2.txt 0.6 7779 7775
+python3 grapher.py serverlog.txt proxylog1.txt proxylog2.txt
+python3 netsim.py onelink run -e topology/onelink/onelink.events -l serverlog.txt
+(上面这句话可以反复跑)
+
+# 最新的twolink启动流程
+python3 netsim.py servers stop -s servers/2servers
+python3 netsim.py twolink start
+
+python3 dns.py topology/twolink/twolink
+python3 proxy9.py proxylog1.txt 0.6 7778 7775
+python3 proxy9.py proxylog2.txt 0.6 7779 7775
+python3 netsim.py twolink run -e topology/twolink/twolink.events -l serverlog.txt
+python3 grapher.py serverlog.txt proxylog1.txt proxylog2.txt
+
+# 最新的sharelink启动流程
+python3 netsim.py servers stop -s servers/2servers
+python3 netsim.py sharelink start
+
+python3 dns.py topology/sharelink/sharelink
+python3 proxy9.py proxylog1.txt 0.6 7778 7775
+python3 proxy9.py proxylog2.txt 0.6 7779 7775
+python3 netsim.py sharelink run -e topology/sharelink/sharelink.events -l serverlog.txt
+python3 grapher.py serverlog.txt proxylog1.txt proxylog2.txt

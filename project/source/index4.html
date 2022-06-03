@@ -1,0 +1,177 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+  <title>Strobe Media Playback</title>
+  <script type="text/javascript" src="swfobject.js"></script>
+  <script type="text/javascript">
+    var loc = window.location.host
+
+    // Create a StrobeMediaPlayback configuration
+    var parameters =
+    {
+      src: "http://" + loc + "/vod/big_buck_bunny.f4m"
+      , autoPlay: true
+      , controlBarAutoHide: false
+      , javascriptCallbackFunction: "onJavaScriptBridgeCreated"
+    };
+
+    // Embed the player SWF:
+    swfobject.embedSWF
+      ("StrobeMediaPlayback.swf"
+        , "strobeMediaPlayback"
+        , 1280
+        , 720
+        , "10.1.0"
+        , {}
+        , parameters
+        , { allowFullScreen: "true" }
+        , { name: "strobeMediaPlayback" }
+      );
+
+
+    function onCurrentTimeChange(time, playerId) {
+      document.getElementById("currentTime").innerHTML = time;
+    }
+
+    function onDurationChange(time, playerId) {
+      document.getElementById("duration").innerHTML = time;
+    }
+    var player = null;
+    function onJavaScriptBridgeCreated(playerId) {
+      if (player == null) {
+        player = document.getElementById(playerId);
+
+        // Add event listeners that will update the
+        player.addEventListener("currentTimeChange", "onCurrentTimeChange");
+        player.addEventListener("durationChange", "onDurationChange");
+
+        // Pause/Resume the playback when we click the Play/Pause link
+        document.getElementById("play-pause").onclick = function () {
+          var state = player.getState();
+          if (state == "ready" || state == "paused") {
+            player.play2();
+          }
+          else
+            if (state == "playing") {
+              player.pause();
+            }
+          return false;
+        };
+      }
+    }
+  </script>
+</head>
+
+<body>
+  <div id="container" class="screen_container">
+    <div id="strobeMediaPlayback">
+      <p>Alternative content</p>
+    </div>
+  </div>
+</body>
+
+<!-- 这个下面是我添加的><!-->
+
+
+<div class="main">
+  <textarea id="danmakutext" type="text" placeholder="VDN~"></textarea>
+  <button class="send">Send</button>
+</div>
+<style>
+  .screen_container {
+    position: relative;
+    width: 1300px;
+    height: 730px;
+    margin: 30px auto;
+    background: #000;
+    overflow: hidden;
+    border-style: solid;
+    border-radius: 25px;
+    border-color: rgb(15, 193, 243);
+  }
+  
+
+  <!-- body {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    min-width: 1000px;
+    background-image: url("https://img-qn-3.51miz.com/preview/element/00/01/18/57/E-1185774-ED1A979F.jpg!/quality/90/unsharp/true/compress/true/format/jpg/fh/260");
+    background-repeat: no-repeat;
+    background-size: cover;
+    background-attachment: fixed;
+    -webkit-background-size: cover;
+    -o-background-size: cover;
+    background-position: center center;
+  } -->
+
+  .main {
+    width: 600px;
+    margin: 20px auto;
+    text-align: center;
+  }
+</style>
+<script src="https://cdn.staticfile.org/jquery/3.3.1/jquery.min.js"></script>
+<script>
+  const timers = [];
+  function disposeDanmuList(data) {
+    const dataList = data.split("\r\n")
+    dataList.forEach(function (dataListKey) {
+      const jqueryDom = createDanmaku(dataListKey);
+      addInterval(jqueryDom);
+    })
+  };
+
+  function queryDanmu() {
+    $.get("http://127.0.0.1:" + window.location.port + "/qdanmu", disposeDanmuList);//第二个参数是载入成功的回调函数,这个可以显示的
+  }
+  setInterval(queryDanmu, 2000);
+  $(".send").on("click", function () {
+    var content = $('#danmakutext').val();//这地方还必须用val
+    // $('#danmukutext').clearInterval();
+    $.post("http://127.0.0.1:" + window.location.port + "/sdanmu", content);
+  });
+
+
+  function createDanmaku(text) {
+    var timestamp = Date.parse(new Date());
+    timestamp = timestamp % 255;
+    var time_str_r = timestamp + "";
+    var time_str_g = (timestamp + Math.random() * 100) % 255 + "";
+    var time_str_b = (timestamp + Math.random() * 200) % 255 + "";
+    const jqueryDom = $("<div class='bullet'>" + text + "</div>");
+    const fontColor = "rgb(" + time_str_r + "," + time_str_g + "," + time_str_b + ")";
+    var fsize = (Math.random() * 20 + 20) + "";
+    const fontSize = fsize + 30 + "px";
+    let top = Math.floor(Math.random() * 400) + "px";
+    const left = $(".screen_container").width() + "px";
+    jqueryDom.css({
+      "position": 'absolute',
+      "color": fontColor,
+      "font-size": fontSize,
+      "left": left,
+      "top": top,
+
+    });
+    $("#container").append(jqueryDom);
+    return jqueryDom;
+  }
+  // add timer task to let the danmaku fly from right to left
+  function addInterval(jqueryDom) {
+    let left = jqueryDom.offset().left - $("#container").offset().left;
+    const timer = setInterval(function () {
+      left--;
+      jqueryDom.css("left", left + "px");
+      if (jqueryDom.offset().left + jqueryDom.width() < $("#container").offset().left) {
+        jqueryDom.remove();
+        clearInterval(timer);
+      }
+    }, 5); // set delay as 5ms,which means the danmaku changes its position every 5ms
+    timers.push(timer);
+  }
+</script>
+
+</html>

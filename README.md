@@ -2,7 +2,18 @@
 
 # CS305-Computer-Network
 
+Lectured by Professor ZhuoZhao LI
+
 This repository contains the code implemented for lab practise and project of the CS305-Computer-Network of SUSTech.
+
+| Project/Assignment | Score   |
+| ------------------ | ------- |
+| Local DNS Server   | 100/120 |
+| Danmuku System     | 101/120 |
+| Routing Simulation | 100/100 |
+| CDN System         | 105/120 |
+
+**Final Score: 97/100**
 
 ### 《计算机网络：自顶向下方法》概念整理
 
@@ -23,3 +34,7 @@ Now the project has finished~
 ## Routing Simulation
 In assignment3, we were required to implemented the routing algorithm(Dijkstra Algorithm) and the routing aggregation algorithm.
 In this assignment, I get a proficiency in Python.
+
+## Project: CDN System
+
+In the project, we were required to implemented a CDN System that can adjust the bit rate of a video according to the current bandwidth of the uses.

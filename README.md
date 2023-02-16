@@ -13,7 +13,7 @@ This repository contains the code implemented for lab practise and project of th
 | Routing Simulation | 100/100 |
 | CDN System         | 105/120 |
 
-**Final Score: 97/100**
+**Final Score: 97/100(A+)**
 
 ### 《计算机网络：自顶向下方法》概念整理
 
